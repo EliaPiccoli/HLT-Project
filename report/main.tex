@@ -40,7 +40,7 @@ sorting=ynt
    \end{center}
 \end{titlepage}
 \newpage
-{\small\tableofcontents}
+{\footnotesize \tableofcontents}
 \pagenumbering{arabic}
 \newpage
 
@@ -75,7 +75,7 @@ Exploring the samples and discussing with Doc. Franchi lead to the individuation
     \item A specific class (\textit{Permessi sindacali}) contained a notable amount of full names, and was therefore dropped under Doc. Franchi advice. 
     \item An ensemble of protocols all involving \textit{Fatture} was dropped due to the uselessness of a classifier in that case. The documents involving these protocols are in fact not inserted by hand but by an automatized process.
 \end{itemize}
-This first process left us with a dataset composed of \textbf{60509} samples, which we furthered cleaned and treated by transforming the input features (\textit{Oggetto} and \textit{Contenitore}) into lower case strings and by stripping the resulting samples from any unnecessary leading/trailing whitespace. 
+This first process left us with a dataset composed of \textbf{60509} samples, which we furthered cleaned and treated by transforming the input features (\textit{Oggetto} and \textit{Contenitore}) by stripping the resulting samples from any unnecessary leading/trailing whitespace. 
 
 \subsection{Dataset Balancing} \label{sec:dataset-balancing}
 The implicit different load of documents per class in a real world application such as this one leads to a not surprising fact, the unbalancing in number of samples per class. An unbalanced dataset is not ideal for the task, since the model will have a disproportion of learning material with a consequent lower precision in less populated classes. \\We therefore opted for a balancing process on the dataset, applying a careful stratification to low populated classes and a reduction to exaggeratedly populated ones. The main aim of the process was to result in a more balanced first level dataset (the second level of the tree is too unbalanced and sparse) while maintaining the data distribution. 
@@ -83,7 +83,7 @@ The implicit different load of documents per class in a real world application s
     \item \textbf{Stratification:} applied to class 3,5,11 and 12. Unfortunately we could not automatically generate new samples in the \textit{Oggetto} field because of its textual nature, nevertheless we tried to higher the number of samples and their variability by creating new rows where \textit{Oggetto} and \textit{Contenitore} are chosen independently and randomly from the pool of \textit{Oggetti} and \textit{Contenitori} of a specific second level class. This augmentation assured the correctness of the dataset both for the first level and the second level task. 
     \item \textbf{Reduction:} applied to class 6,14. Randomly chosen samples were dropped. Randomization was preferred to cutting beginning/end of dataset for a higher probability in maintaining the interclass distribution.
 \end{itemize}
-The result of the balancing process can be appreciated in \hyperref[fig:before]{\textbf{Figure 1a}} and \hyperref[fig:after]{\textbf{Figure 1b}}.
+The result of the balancing process can be appreciated in \hyperref[fig:before]{\textbf{Figure 1a}} and \hyperref[fig:after]{\textbf{Figure 1b}}, leaving in the final dataset a total of \textbf{39940} samples.
 \begin{figure}[!tbp]
   \centering
   \subfloat[Before balancing]{\includegraphics[width=0.4\textwidth]{before_balancing.png}\label{fig:before}}
@@ -97,7 +97,7 @@ Data parsing is a fundamental aspect when working with Natural Language, therefo
 \\The dataset has therefore to pass through a last procedure before being ready for training:
 \begin{itemize}
     \item \textbf{Filtering:} Generalizing the data from futile or private information, replacing all dates, hours, emails and generic numbers with more general tokens, namely \textless DATE\textgreater, \textless HOUR\textgreater, \textless EMAIL\textgreater, \textless NUMBER\textgreater. Particular care was put into the email processing, a process which was manually checked to ensure the avoidance of personal data in the final training dataset, which might have happened due to the possible incorrectness of human written text.
-    \item \textbf{Tokenization:} Splitting the data in single words and removing punctuation. A particularity here stands in the need for a fixed number of words in the processed \textit{Oggetto} field. The use of a Transformer (further introduced in \hyperref[sec:object-module]{\textbf{Section 3.1.1}}) implies in our case an Embedding Layer for which a fixed input dimension is required. We therefore studied and analyzed the \textit{Oggetto} length variability and opted for a sequence length of \textbf{30 words}. The decision came from a statistical analysis (a summary can be appreciated in \hyperref[fig:objectlength]{\textbf{Figure 2}}) merged with the will of being as indulgent as we can and maintain as much information as possible in the sentence. Consequently, sentences with more than 30 words are truncated and in the opposite case are filled to reach the correct length with special padding tokens (\textless PAD\textgreater).
+    \item \textbf{Tokenization:} Splitting the data in single words. A particularity here stands in the need for a fixed number of words in the processed \textit{Oggetto} field. The use of a Transformer (further introduced in \hyperref[sec:object-module]{\textbf{Section 3.1.1}}) implies in our case an Embedding Layer for which a fixed input dimension is required. We therefore studied the \textit{Oggetto} length, noticing how a relevant amount of data has little length (a statistical analysis can be appreciated in \hyperref[fig:objectlength]{\textbf{Figure 2}}) and we settled for the maximum possible \textit{Oggetto} length (\textbf{95}). Sentences with less than \textbf{95} tokens are filled to reach the correct length with special padding tokens (\textless PAD\textgreater), handled by the \textit{padding mask} software component of the \textit{Transformer} object.
     \item \textbf{Encoding:} After collecting all dataset tokens a vocabulary is created and so is a mapping between token and integer. This allows for a fast encoding procedure, transforming the input sentence in an integer array which can be directly fed to the model (if a word is not present in the vocabulary it is replaced with a special token, \textless UNK\textgreater).
 \end{itemize}
 \begin{figure}[ht!]
@@ -117,7 +117,8 @@ The class of each protocol depends on two aspects:
     \item \textbf{Oggetto}: subject of the document, inserted by the human operator at classification time.
     \item \textbf{Contenitore}: archiving office for the protocol. Each office may archive different categories of documents, which, therefore, belong to different classes.
 \end{itemize}
-These two attributes are treated differently, by two different sub-models (\textbf{object module} \ref{sec:object-module} and \textbf{office module} \ref{sec:office-module}) whose outputs will be combined and fed to a multi-layer perceptron (MLP) that will perform the final classification.
+These two attributes are treated differently, by two different sub-models (\textbf{object module} \ref{sec:object-module} and \textbf{office module} \ref{sec:office-module}) whose outputs will be combined and fed to a multi-layer perceptron (MLP) that will perform the final classification. 
+\\The full architecture can be appreciated in \hyperref[fig:archifirst]{\textbf{Figure \ref{fig:archifirst}}}.
 
 \subsubsection{Object module}\label{sec:object-module}
 Due to the textual nature of \textit{Oggetto} attribute, that can be seen as a summary of the content of the document, it is important to capture its semantics in order to understand the general matter of the document itself and perform a meaningful classification.\\
@@ -131,50 +132,32 @@ Now, since the task is a classification (and not, for example, a sequence-to-seq
 The model used in the task, so, is formed by an embedding layer \cite{pytorch_embedding} followed by a \textit{TransformerEncoder} \cite{pytorch_transformerencoder}, that is a stack of encoders as described in \cite{attention_is_all_you_need}.
 
 \subsubsection{Office module}\label{sec:office-module}
-The information about the office that performs the classification is categorical, so, from textual data, it gets 1-hot encoded.
-This, anyway, is not beneficial for the model, because the information would be very sparse, for this reasons \textbf{office module} serves as an embedder used to move towards a dense representation.
-\paragraph{Architecture}
-This embedder is built as a MLP with 3 layers, all with a ReLU activation function. In particular:
-% an input layer of 20 units (i.e. the dimensionality of the 1-hot encoding), a hidden layer of 10 units to form an "information bottleneck" and an output layer of 128 units (i.e. the chosen dimensionality of the encoding).
-\begin{itemize}
-    \item input layer: 20 units, i.e. the dimensionality of the 1-hot encoding of the office.
-    \item hidden layer: 10 units, it reduces the dimensionality to serve as an "information bottleneck".
-    \item output layer: 128 units, i.e. the chosen dimensionality of the embedding.
-\end{itemize}
-\paragraph{Training of the embedder}
-This embedder is trained in an \textit{encoder-decoder fashion}:
-at training time, another fully-connected layer is added at the end of the embedder, whose input dimension corresponds to the embedding one (128) and its output dimension is equal to the dimensionality of the original 1-hot encoding of the office (20).
-This final layer has a \textit{tanh} activation function and its purpose is to reconstruct the original 1-hot encoding.
-To draw a parallel with an encoder-decoder architecture, the embedder acts as the encoder while the final layer serves as decoder.\\
-During the training process, the data is passed through the full architecture (embedder + final layer) and the loss function (cross entropy) forces the model's output to be as similar as possible to the model's input.\\\\
-\textbf{Notes:}
-\begin{itemize}
-    \item PyTorch's implementation of the cross entropy loss \cite{pytorch_crossentropy} does not necessarily want an input that is scaled in the interval $[0,1]$, as this operation is performed by the loss itself.
-    \item The \textit{sigmoid} activation function in the final layer would also be good for reconstructing a 1-hot encoding, but the results were worse, therefore the final choice was the \textit{tanh}. As stated in the previous point, it is not necessary that the model's output is scaled in $[0,1]$.
-\end{itemize}
+The information about the office in which the classified protocol is stored is categorical, hinting to the use of one hot encoding. Therefore the textual data becomes an array as long as the number of offices, filled with zeros apart from a single cell containing a 1.
 
 \subsection{Performances}\label{sec:1-lvl-perf}
 Experiments were carried out on a \textit{Lenovo Legion Y740-17IRHg} using its GPU (\textit{NVIDIA GeForce RTX 2080 Max-Q}) to speedup the training process. Pay attention that although trainings are executed on GPU, all timings reported for inference are referring to CPU execution of a trained model. 
 
 Model training and validation have been carried out using a dataset with data coming from 2018 up to mid May 2021 using a \textit{Hold Out} validation strategy with an 80-20 split. \textit{Top 1} and \textit{Top 3} accuracy are used for model selection and \textit{Cross Entropy Loss} is used for learning because of the multi-class task. \textit{ReLU} is used throughout all the model as activation function.
 
-An initial screening phase brought out the necessity of having a bigger chunk of the final classifier input composed of the object module (\hyperref[sec:object-module]{\textbf{Section \ref{sec:object-module}}}) with respect to the office module (\hyperref[sec:office-module]{\textbf{Section \ref{sec:office-module}}}) embedding size. The screening phase also helped with fixing other parameters, such as the \textit{Learning Rate} (after the initial trials we opted for a default \textit{Adam} optimizer), the use of a \textit{Multi-Head Attention} with 8 heads and a Transformer Encoder stack of 2 levels.
+An initial screening phase helped with fixing various hyperparameters, such as the \textit{Learning Rate} (after the initial trials we opted for a default \textit{Adam} optimizer), the use of a \textit{Multi-Head Attention} with 8 heads and a Transformer Encoder stack of 2 levels.
 
-Our trials have therefore focused on attempting the varying of \textit{object embedding size}, \textit{office embedding size}, \textit{number and extension of layers in final classifier} and \textit{amount of regularization}. Most relevant results are shown in \hyperref[tb:firstlevel-hyper]{\textbf{Table \ref{tb:firstlevel-hyper}}}. All attempts\footnote{obj: \textit{object module}, off: \textit{office module}, emb: \textit{embedding}, cls: \textit{final classifier}} are given 50 epochs but have stopped before reaching the end because of a \textit{patience} mechanism.
+Our trials have therefore focused on attempting the varying of \textit{object embedding size}, \textit{number and extension of layers in final classifier} and \textit{amount of regularization}. Most relevant results are shown in \hyperref[tb:firstlevel-hyper]{\textbf{Table \ref{tb:firstlevel-hyper}}}. All attempts\footnote{obj: \textit{object module}, emb: \textit{embedding}, cls: \textit{final classifier}} are given 50 epochs but have stopped before reaching the end because of a \textit{patience} mechanism.
 
 \begin{table}[ht!]
 	    \centering
 	    \scriptsize
 	    \begin{tabular}{ |c|c|c|c|c| }
         \hline
-        \textbf{Model} & \textbf{Off/Obj Emb Size} & \textbf{Obj Output Size} & \textbf{Cls Topology} & \textbf{Obj/Cls Dropout} \\
+        \textbf{Model} & \textbf{Obj Emb Size} & \textbf{Obj Output Size} & \textbf{Cls Topology} & \textbf{Obj/Cls Dropout} \\
         \hline
-        model 25 & 128/256 & 256 & (obj + off, 15) & 0.777/0.777 \\
-        model 35 & 128/256 & 256 & (obj + off, 512, 256, 15) & 0.5/0.5 \\
-        model 36 & 128/256 & 256 & (obj + off, 256, 15) & 0.5/0.5 \\
-        model 38 & 128/256 & 256 & (obj + off, 15) & 0.5/0.0 \\
-        model 39 & 128/512 & 512 & (obj + off, 15) & 0.5/0.5 \\
-        model 40 & 128/128 & 128 & (obj + off, 15) & 0.5/0.5 \\
+        model 25 & 256 & 256 & (obj + off, 15) & 0.777/0.777 \\
+        model 35 & 256 & 256 & (obj + off, 512, 256, 15) & 0.5/0.5 \\
+        model 36 & 256 & 256 & (obj + off, 256, 15) & 0.5/0.5 \\
+        model 38 & 256 & 256 & (obj + off, 15) & 0.5/0.0 \\
+        model 39 & 512 & 512 & (obj + off, 15) & 0.5/0.5 \\
+        model 40 & 128 & 128 & (obj + off, 15) & 0.5/0.5 \\
+        model 100 & 256 & 256 & (obj + off, 15) & 0.7/0.5\\
+        model 104 & 256 & 256 & (obj + off, 15) & 0.7/0.2\\
         \hline
         \end{tabular}
         \captionsetup{justification   = centering}
@@ -189,12 +172,14 @@ Our trials have therefore focused on attempting the varying of \textit{object em
         \hline
         \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val}\\
         \hline
-        model 25 & 95.70/87.82 & 99.48/95.70 \\
+        model 25 & 95.70/87.02 & 99.48/95.70 \\
         model 35 & 91.27/86.79 & 97.18/95.16 \\
         model 36 & 89.67/86.39 & 96.52/94.96 \\
         model 38 & 90.41/86.21 & 97.40/94.77 \\
-        model 39 & 92.55/87.78 & 98.62/95.68 \\
+        model 39 & 92.55/87.08 & 98.62/95.68 \\
         model 40 & 91.80/86.91 & 98.21/95.50 \\
+        model 100 & 90.59/86.50 & 98.01/95.43 \\
+        model 104 & 92.56/87.09 & 98.93/95.73 \\
         \hline
         \end{tabular}
         \captionsetup{justification   = centering}
@@ -205,9 +190,8 @@ Our trials have therefore focused on attempting the varying of \textit{object em
 
 Results shown in \hyperref[tb:firstlevel-hyper]{\textbf{Table \ref{tb:firstlevel-hyper}}} and \hyperref[tb:firstlevel-results]{\textbf{Table \ref{tb:firstlevel-results}}} give rise to some interesting observations. It can be noticed in fact that the topology increment of the final classifier does not help the model to learn better and neither does increasing the object module output size (even if the worsening in accuracy is minimal). In the screening phase we also noticed a similar minimal phenomenon in worsening of accuracy when increasing the number of transformer encoders stacked onto each other. 
 
-The selected model for the first level task is eventually \textbf{Model 25}, for which, taking a look at the model training/validation plot (\hyperref[fig:model25]{\textbf{Figure \ref{fig:model25}}}), overfitting is clear even if the model's regularization is remarkable. This event happened in all models we attempted, with the only exception being the \textit{office only model} (\hyperref[sec:office_only]{\textbf{Section \ref{sec:office_only}}}) which underperformed nevertheless. 
+The selected model for the first level task is eventually \textbf{Model 104}, for which, taking a look at the model training/validation plot (\hyperref[fig:model104]{\textbf{Figure \ref{fig:model104}}}), the moment when \textit{patience} begins to rise is highlighted in red, stating the presence of an \textit{early stopping} mechanism.
 
-The event of overfitting can be explained in this application case by the dataset nature. The dataset is highly unbalanced and needed balancing as explained in \hyperref[sec:dataset-balancing]{\textbf{Section \ref{sec:dataset-balancing}}}. The balancing process was a special kind of stratification, which lead to the presence of many extremely similar (or in some cases directly replicated) samples. Still, the presence of overfitting does not compromise the generalization capability of the model. In fact, it can be appreciated how the validation loss keeps lowering as the model continues its training until we reach the real moment of overfitting (highlighted by the red \textit{patience} bar), beginning of the \textit{patience} mechanism.
 
 \section{Second Level Model}\label{sec:2lev-model}
 Here is described the model used to perform a classification that reaches the second level of the classes' hierarchy.\\
@@ -217,35 +201,38 @@ This task is more challenging because the number of classes grows significantly 
 The model is composed of 3 main modules:
 \begin{itemize}
     \item \textbf{object module:} same as for the first level model (\hyperref[sec:object-module]{\textbf{\ref{sec:object-module}}}).
-    \item \textbf{office module:} same as for the first level model (\hyperref[sec:office-module]{\textbf{\ref{sec:office-module}}}). It is loaded from a pretrained version used for the first-level classification and its parameters are kept frozen\footnote{\label{ftnote:frozen} "Frozen" parameters (weights) are immutable/non-trainable.}.
-    \item \textbf{first level module:} consists of the pre-trained first level model (\hyperref[sec:1lev-model]{\textbf{Sec. \ref{sec:1lev-model}}}). It is loaded and its parameters are kept frozen\footnotemark[\getrefnumber{ftnote:frozen}].
+    \item \textbf{office module:} same as for the first level model (\hyperref[sec:office-module]{\textbf{\ref{sec:office-module}}}).
+    \item \textbf{first level module:} consists of the pre-trained first level model (\hyperref[sec:1lev-model]{\textbf{Sec. \ref{sec:1lev-model}}}). It is loaded and its parameters are kept frozen\footnote{\label{ftnote:frozen} "Frozen" parameters (weights) are immutable/non-trainable.}.
     \item \textbf{final classifier:} a final MLP to perform the actual classification.
 \end{itemize}
 The input-output process works as follows:
 \begin{enumerate}
     \item \label{ls:1lev_cls} A first-level classification is performed using the \textit{first level module}
-    \item \label{ls:off_emb} An embedding of the office is obtained through the \textit{office module}
+    \item \label{ls:off_emb} A one hot encoding of the office is obtained through the \textit{office module}
     \item \label{ls:obj_emb} The object is passed through the \textit{object module}, the result is flattened and then sent to a FC layer\footnote{\label{ftnote:fc_layer} fully-connected / dense.} with ReLU activation function to get the desired dimensionality
     \item \label{ls:concat} The outputs of the steps \ref{ls:off_emb} and \ref{ls:obj_emb} are concatenated, some dropout is applied and the result is sent to the \textit{final classifier}
     \item \label{ls:final} Finally a bias is added to the output of the \textit{final classifier}. The output in this case is a vector of 118 cells, each cell represent a second level class, which is a refinement of a first level one. Therefore, exploiting a mapping between \textit{first-level class} and \textit{second level output index}, it is possible to add a bias accordingly to the first level prediction. In this way, the second level classes that corresponds to a more likely first level class will receive a boost.
 \end{enumerate}
 Exploiting the results of the first level prediction in order to guide the second level may be dangerous if the first level is not precise. In our case given the results presented in \textbf{\ref{sec:1-lvl-perf}} the first level module has a 99\% \textit{Top 3} accuracy, so the bias injected in the second level prediction in most cases does not provide any noise. \hyperref[sec:altern-lev2]{\textbf{Section \ref{sec:altern-lev2}}} analyzes the results obtained without using the first-level module output information.
+\\The full architecture can be appreciated in \hyperref[fig:archisecond]{\textbf{Figure \ref{fig:archisecond}}}.
 
 \subsection{Performances}\label{sec:secondlevelperformances}
-As expected, the harder the task (in this case we enter in a situation where many more classes are present and data is a lot sparser) the lower the accuracy of the model. After a second screening phase we maintained the validation method and the same fixed parameters of the first level task (see \hyperref[sec:1-lvl-perf]{\textbf{Section \ref{sec:1-lvl-perf}}}). Because of the poorer results we decided to introduce a \textit{Top 5} accuracy. The introduction of a broader new accuracy assures a good result while still keeping an objectively restricted choice for the client. 
+As expected, the harder the task (in this case we enter in a situation where many more classes are present and data is a lot sparser) the lower the accuracy of the model. After a second screening phase we maintained the validation method and the same fixed parameters of the first level task (see \hyperref[sec:1-lvl-perf]{\textbf{Section \ref{sec:1-lvl-perf}}}). Because of the poorer results we decided to introduce a \textit{Top 5} accuracy. The introduction of a broader new accuracy assures a good result while still keeping an objectively restricted choice for the user. 
 
 \begin{table}[h!]
 	    \centering
 	    \scriptsize
 	    \begin{tabular}{ |c|c|c|c|c| }
         \hline
-        \textbf{Model} & \textbf{Off/Obj Emb Size} & \textbf{Obj Output Size} & \textbf{Cls Topology} & \textbf{Obj/Cls Dropout}\\
+        \textbf{Model} & \textbf{Obj Emb Size} & \textbf{Obj Output Size} & \textbf{Cls Topology} & \textbf{Obj/Cls Dropout}\\
         \hline
-        model 41 & 128/256 & 256 & (obj + off, 15) & 0.5/0.2\\
-        model 42 & 128/512 & 512 & (obj + off, 15) & 0.5/0.2\\
-        model 43 & 128/128 & 128 & (obj + off, 15) & 0.5/0.2\\
-        model 45 & 128/256 & 256 & (obj + off, 15) & 0.7/0.7\\
-        model 46 & 128/256 & 256 & (obj + off, 512, 256, 15) & 0.5/0.2\\
+        model 41 & 256 & 256 & (obj + off, 118) & 0.5/0.2\\
+        model 42 & 512 & 512 & (obj + off, 118) & 0.5/0.2\\
+        model 43 & 128 & 128 & (obj + off, 118) & 0.5/0.2\\
+        model 45 & 256 & 256 & (obj + off, 118) & 0.7/0.7\\
+        model 46 & 256 & 256 & (obj + off, 512, 256, 118) & 0.5/0.2\\
+        model 200 & 256 & 256 & (obj + off, 118) & 0.7/0.5\\
+        model 208 & 256 & 256 & (obj + off, 118) & 0.7/0.2\\
         \hline
         \end{tabular}
         \captionsetup{justification   = centering}
@@ -260,11 +247,13 @@ As expected, the harder the task (in this case we enter in a situation where man
         \hline
         \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val} & \textbf{Top5 Tr/Val}\\
         \hline
-        model 41 & 84.67/78.35 & 94.52/87.20 & 97.35/90.53 \\
+        model 41 & 84.67/77.75 & 94.52/87.20 & 97.35/90.53 \\
         model 42 & 67.88/65.67 & 86.83/82.12 & 92.89/87.98 \\
         model 43 & 84.14/77.71 & 94.61/86.95 & 97.15/90.30 \\
         model 45 & 67.26/65.55 & 86.96/82.17 & 92.90/87.76 \\
         model 46 & 83.95/76.93 & 94.10/86.26 & 96.98/90.10 \\
+        model 200 & 76.79/76.62 & 89.13/86.26 & 93.20/89.68 \\
+        model 208 & 80.30/77.71 & 91.84/87.49 & 95.31/90.54 \\
         \hline
         \end{tabular}
         \captionsetup{justification   = centering}
@@ -274,13 +263,13 @@ As expected, the harder the task (in this case we enter in a situation where man
 
 Most relevant results are shown in \hyperref[tb:secondlevel]{\textbf{Table \ref{tb:secondlevel}}} and \hyperref[tb:secondlevelacc]{\textbf{Table \ref{tb:secondlevelacc}}}. All attempts are given once again 50 epochs but have stopped before reaching the end because of a \textit{patience} mechanism.
 \newline\newline
-As can be appreciated, even if the \textit{Top 1} accuracy is not astonishing, \textbf{Model 41} reached a stunning 90\% in \textit{Top 5} validation accuracy, making it the selected model for the second level task.  In particular, making a parallel with the first level performance analysis, the same phenomenon of overfitting can be appreciated in the model's training and validation plots (\hyperref[fig:model41]{\textbf{Figure \ref{fig:model41}}}), even more accentuated because of the sparsity of the task.
+As can be appreciated, even if the \textit{Top 1} accuracy is not astonishing, \textbf{Model 208} reached a stunning 90.54\% in \textit{Top 5} validation accuracy, making it the selected model for the second level task.
 
 
 \section{Relevant Attempts}
 Here is provided a list of relevant alternative attempts made during the development of the project.\\
 They can provide interesting comparisons and insights about the behaviour and characteristics of the main models presented in \textbf{Sections \ref{sec:1lev-model}} and \textbf{\ref{sec:2lev-model}}, as well as a different point of view on the \textit{Contenitore} field (e.g. \hyperref[sec:cls-distr-bias]{\textbf{Section \ref{sec:cls-distr-bias}}}).\\
-Some models were developed for a first-level classification (\textbf{\ref{sec:altern_lev1}}) and an alternative attempt has been made for a 2-level classification (\textbf{\ref{sec:altern-lev2}}).
+Some models were developed for a first-level classification (\textbf{\ref{sec:altern_lev1}}) and an alternative attempt has been made for a second-level classification (\textbf{\ref{sec:altern-lev2}}).
 
 \subsection{First level}\label{sec:altern_lev1}
 Here are presented alternative models used and tested on the first level of the classes' hierarchy.\\\\
@@ -289,9 +278,8 @@ The models used in Sections \textbf{\ref{sec:1lev-model}} and \textbf{\ref{sec:2
     \item object: the real textual information, it is a summary of the content of the document and it is important to capture its meaning in order to correctly classify the document;
     \item office: it is more of a categorical information providing hints on the subset of classes that is more likely to contain the correct one.
 \end{itemize}
-It is possible to operate a trade-off between the contributions of these two pieces of information by changing the relative dimensions of the outputs of the \textit{object module} and the \textit{office module}
-\footnote{The output of the \textit{object module} ($o_1$) and the output of the \textit{office module} ($o_2$) are concatenated to form the input of the final classifier, therefore, if $o_1$ is much larger than $o_2$ (or vice versa), it is going to represent a bigger portion of the classifier's input and it will be more relevant for the final outcome.}.\\
-This concept, if brought to the extreme, leads to two different and opposite situations: one where only the object is taken into account (Sec. \textbf{\ref{sec:obj_only}}) and the other where only the office is considered (Sec. \textbf{\ref{sec:office_only}}).
+The output of the \textit{object module} and the output of the \textit{office module} are concatenated to form the input of the final classifier, therefore, both are used and relevant for the final outcome, but are they both necessary?\\
+To better understand if \textit{Contenitore} is really helping the model an extreme situation can be analyzed: a model where only the object is taken into account.
 
 \subsubsection{Object only}\label{sec:obj_only}
 This model tries to classify the documents considering only its object, with no information about the office that manages this protocol. This test is interesting for understanding exactly how well the model can adapt to this situation where a part of the information is missing and how important is one field compared to the other\footnote{The fields are \textit{Oggetto} (object) and \textit{Contenitore} (office).}
@@ -309,7 +297,7 @@ Given the underlying structure of this model - \textbf{\ref{sec:object-module}} 
         \hline
         \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val}\\
         \hline
-        Model 25 & 95.70/87.82 & 99.48/95.70 \\
+        model 104 & 92.56/87.09 & 98.93/95.73 \\
         Obj only & 87.42/84.13 & 96.41/94.30 \\
         \hline
         \end{tabular}
@@ -319,40 +307,12 @@ Given the underlying structure of this model - \textbf{\ref{sec:object-module}} 
     \caption{Comparison between \textit{first-level} and \textit{object only} models}
 \end{table}
 
-\subsubsection{Office only}\label{sec:office_only}
-In this case, the model tries to classify the documents using only the office information, ignoring the object field. As highlighted in the previous subsection, this analysis helps to understand how the single information performs alone and why merging the two provide better results.
-\paragraph{Model description}
-This model is obtained by removing the \textit{object module} (\textbf{\ref{sec:object-module}}). The \textit{pre-trained office module} provides an encoding of the office data, then this high dimensional representation goes through a FC Layer\footnotemark[\getrefnumber{ftnote:fc_layer}] to get the correct output size. The model is then trained to solve the document classification task.
-\paragraph{Performances}
-In this case the results are definitely worse with respect to the \textit{first-level} or \textit{object only} model. This is related to the limited size of the model and its parameters, only the last layers are in fact updated, but also to the office information. As mentioned in the previous case, one office can handle documents that are classified differently, leading to pairs of input/output that are not always the same. This two aspects strongly influence the performances of the model, even with different sizes of encoding. Results are reported in the following table.
-\begin{table}[ht!]
-    \begin{adjustwidth}{}{}
-	    \centering
-	    \small
-	    \begin{tabular}{ |c|c|c| }
-        \hline
-        \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val}\\
-        \hline
-        Model 25 & 95.70/87.82 & 99.48/95.70 \\
-        Obj only & 87.42/84.13 & 96.41/94.30 \\
-        Off only 128 & 58.48/58.79 & 78.92/80.14 \\
-        Off only 256 & 58.99/58.86 & 80.02/80.53 \\
-        Off only 512 & 58.78/58.78 & 80.03/80.60 \\
-        \hline
-        \end{tabular}
-	    \label{tb:relevant-off}
-    \end{adjustwidth}
-    \captionsetup{justification   = centering}
-    \caption{Comparison between \textit{first-level}, \\\textit{object only} and \textit{office only} models}
-\end{table}
-
-\subsubsection{Office's classes distribution as injected prior probability}\label{sec:cls-distr-bias}
+\subsubsection{Office's classes distribution as injected probability}\label{sec:cls-distr-bias}
 As stated in \hyperref[sec:office-module]{\textbf{Sec. \ref{sec:office-module}}}, the office where a certain document is archived is a \textbf{categorical} information.
 % Obviously, the name of the office can provide some insights about the classes of documents that it manages, therefore it can be treated as a textual information as it has been done in Sections \ref{sec:1lev-model} and \ref{sec:2lev-model}.
-Previously (Sections \textbf{\ref{sec:1lev-model}} and \textbf{\ref{sec:2lev-model}}), this information has been moved from a 1-hot representation, where all the offices are equidistant from one another, to a dense representation exploiting an embedding mechanism.
-This because different offices may actually share similarities, therefore a dense representation is more effective for the classification task at hand.
-These similarities are not something abstract that can indeed be captured by the embedding but not interpreted by humans;
-in this specific case, similarities among offices are simply reflected in similarities among the \textit{distributions of the classes associated to each office} (referred to as \textbf{classes distribution} of an office (Def. \ref{def:cls_distr})).
+Previously (Sections \textbf{\ref{sec:1lev-model}} and \textbf{\ref{sec:2lev-model}}), this information has been used as a 1-hot representation, where all the offices are equidistant from one another. Although this approach gave us good results, other approaches may be attempted.
+This because different offices may actually share similarities, therefore a denser representation may actually be more effective for the classification task at hand.
+In this specific case, similarities among offices can be reflected in similarities among the \textit{distributions of the classes associated to each office} (referred to as \textbf{classes distribution} of an office (Def. \ref{def:cls_distr})).
 \newtheorem{definition}{Definition}
 \begin{definition}[Classes distribution]\label{def:cls_distr}
     The \textbf{classes distribution} of an office is a vector as long as the number of classes where each entry represents how many documents archived in that office belong to each class, expressed in percentage
@@ -369,19 +329,26 @@ It is easy to conclude that office B and office C are more similar to each other
 As a consequence, their classes distribution vectors will be more similar to each other than any of them is to the classes distribution of office A.\\
 This concept is exploited in the following alternative model.
 \paragraph{Model description}
-The \textit{object module} stays the same, but instead of concatenating its output with the \textit{office module}'s output and then sending the whole to a final MLP, the information regarding the office is injected into the model as a \textbf{prior probability}.\\
+The \textit{object module} stays the same, but instead of concatenating its output with the \textit{office module}'s output and then sending the whole to a final MLP, the information regarding the office is injected into the model as a \textbf{probability distribution}.\\
 Practically this is done in the following way:
 \begin{itemize}
     \item For each input:
     \begin{itemize}
         \item Check the office (\textit{Contenitore} field);
         \item Read the classes distribution vector of that office;
-        \item Perform an element-wise multiplication between the output of the final MLP and this classes distribution vector, scaling the output accordingly to the distribution of the classes.
+        \item Perform an element-wise multiplication between the output of the final MLP and the classes distribution vector, scaling the latter accordingly to the distribution of the classes.
     \end{itemize}
 \end{itemize}
 This will have the effect of adding a bias to the output of the final MLP (that does not consider the office) taking into account that the office of the current entry manages only certain types of documents associated to certain classes in a certain measure.
 \paragraph{Performances}
-Given the architecture of this model, that exploits the \textit{object module} and combines it with prior probabilities, the results were expected to be more or less similar to the object only scenario (\textbf{\ref{sec:obj_only}}). This expectation was in fact confirmed: the models performances are very close. The only difference between the two are the prior probabilities. These can affect model prediction by "boosting" some classes exploiting the distribution of the office. Since the office information is not the perfect oracle as analyzed in \textbf{\ref{sec:office_only}} this introduce some noise to the model leading to slightly worse performances. Theoretically reducing the influence of the prior probability to zero the model performances will asymptotically reach the one of \textbf{\ref{sec:obj_only}}. The following table reports the results and a comparison with the object only model.
+% Given the architecture of this model, that exploits the \textit{object module} and combines it with classes probabilities, the results were expected to be more or less similar to the object only scenario (\textbf{\ref{sec:obj_only}}).
+% This expectation was in fact confirmed:
+The model's performances are very close to the performances of the \textit{object only scenario} (\textbf{\ref{sec:obj_only}}).
+The only difference between the two is the \textit{classes distribution} (Def. \ref{def:cls_distr}): this can affect model prediction by "boosting" some classes which are more likely to be the correct ones.
+Since the office information is not a perfect oracle
+\footnote{Due to human error during the classification process.}, this may introduce some noise into the model, leading to slightly worse performances.
+Theoretically, by reducing the influence of the classes probability to zero, the model performances will eventually reach the one of \textbf{\ref{sec:obj_only}}.
+The following table reports the results and a comparison with the object only model.
 \begin{table}[ht!]
     \begin{adjustwidth}{}{}
 	    \centering
@@ -390,17 +357,42 @@ Given the architecture of this model, that exploits the \textit{object module} a
         \hline
         \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val}\\
         \hline
-        Model 25 & 95.70/87.82 & 99.48/95.70 \\
+        model 104 & 92.56/87.09 & 98.93/95.73 \\
         Obj only & 87.42/84.13 & 96.41/94.30 \\
-        Obj + priors & 84.67/81.23 & 93.25/91.23 \\
+        Obj + injected probs & 84.67/81.23 & 93.25/91.23 \\
         \hline
         \end{tabular}
 	    \label{tb:relevant-bias}
     \end{adjustwidth}
     \captionsetup{justification   = centering}
-    \caption{Comparison between \textit{first-level}, \\\textit{object only} and \textit{offices as priors} models}
+    \caption{Comparison between \textit{first-level}, \\\textit{object only} and \textit{offices as injected probabilities} models}
 \end{table}
 
+\subsubsection{Office's classes distribution as probability concatenated to object information}\label{sec:cls-distr-bias-concat}
+The base concept of this model is the same of \textbf{\ref{sec:cls-distr-bias}}, the main difference is that the office information - always encoded as a vector of the \textit{classes distribution} (Def. \ref{def:cls_distr}) associated to the various offices - is now concatenated to the output of the \textit{object module} (\textbf{\ref{sec:object-module}}).
+This should offer a bit more flexibility than the previous approach (\textbf{\ref{sec:cls-distr-bias}}) because the final classifier can adapt its weights associated to this part of the input, while previously this information was injected through an element-wise multiplication where no weights were involved.
+\paragraph{Performances}
+As expected, thanks to the flexibility added by having some trainable weights associated to the classes distribution of the office, this model performs significantly better than the alternative (\textbf{\ref{sec:cls-distr-bias}}).\\
+The following table adds the results of this model to the previous table.
+\begin{table}[ht!]
+    \begin{adjustwidth}{}{}
+	    \centering
+	    \small
+	    \begin{tabular}{ |c|c|c| }
+        \hline
+        \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val}\\
+        \hline
+        model 104 & 92.56/87.09 & 98.93/95.73 \\
+        Obj only & 87.42/84.13 & 96.41/94.30 \\
+        Obj + injected probs & 84.67/81.23 & 93.25/91.23 \\
+        Obj + concatenated probs & 91.09/86.19 & 98.26/95.30 \\
+        \hline
+        \end{tabular}
+	    \label{tb:relevant-bias-concat}
+    \end{adjustwidth}
+    \captionsetup{justification   = centering}
+    \caption{Comparison between \textit{first-level}, \textit{object only}, \textit{offices as injected probabilities} and \textit{offices as concatenated probabilities} models}
+\end{table}
 \subsection{Second level}\label{sec:altern-lev2}
 \hyperref[sec:2lev-model]{\textbf{Section \ref{sec:2lev-model}}} shows the "standard" model to perform a classification up to the second level of the classes' hierarchy.\\
 The next subsection instead describes an alternative attempt made without using the first-level classification to refine the second-level one.
@@ -414,7 +406,7 @@ Here, the \textit{first level module} is not present, making the \textit{second 
 The second-level classification is performed as in the beginning of the standard \textit{second-level model} (\textbf{\ref{sec:2lev-model}}): the office and the object pass through their respective modules, then the latter is flattened and its dimensionality reduced (as always\footnote{\label{ftnote:always} "always" refers to the models described in sections \ref{sec:1lev-model}, \ref{sec:2lev-model}, \ref{sec:obj_only} and \ref{sec:cls-distr-bias}}, using an apposite FC layer\footnotemark[\getrefnumber{ftnote:fc_layer}]).
 Finally these are concatenated and, after applying some dropout, they are sent to the final classifier (i.e. a MLP).
 \paragraph{Performances}\label{sec:secondnobiasperformances}
-Unlike other models, the performances are in this case surprisingly slightly better than the second level task chosen model, requiring a deeper analysis to understand where and how this simpler model outperforms model 41 (\hyperref[sec:secondlevelperformances]{\textbf{Section \ref{sec:secondlevelperformances}}}). Taking a look at \hyperref[tb:secondnobias]{\textbf{Table \ref{tb:secondnobias}}} the model is able to snatch almost a full \textit{Top 1} validation accuracy point with respect to the chosen model. 
+Unlike other models, the performances are in this case surprisingly slightly better than the second level task chosen model, requiring a deeper analysis to understand where and how this simpler model outperforms model 208 (\hyperref[sec:secondlevelperformances]{\textbf{Section \ref{sec:secondlevelperformances}}}). Taking a look at \hyperref[tb:secondnobias]{\textbf{Table \ref{tb:secondnobias}}} the model is able to snatch two full \textit{Top 1} validation accuracy points with respect to the chosen model. 
 
 \begin{table}[ht!]
     \begin{adjustwidth}{}{}
@@ -424,8 +416,8 @@ Unlike other models, the performances are in this case surprisingly slightly bet
         \hline
         \textbf{Model} & \textbf{Top1 Tr/Val} & \textbf{Top3 Tr/Val} & \textbf{Top5 Tr/Val}\\
         \hline
-        Model 41 & 84.67/78.35 & 94.52/87.20 & 97.35/90.53\\
-        Model No Bias & 87.06/79.32 & 95.72/87.91 & 97.80/91.14\\
+        model 208 & 80.30/77.71 & 91.84/87.49 & 95.31/90.54 \\
+        Model No Bias &  83.96/79.85 & 93.32/89.34 & 95.60/92.14\\
         \hline
         \end{tabular}
     \end{adjustwidth}
@@ -445,7 +437,7 @@ Unfortunately this more in depth analysis did not give better insights. This is 
 \textit{CTT} company kindly provided us with a set of data completely detached from the previous dataset. This \textbf{test set} is in fact composed of the documents following the previous period, in particular going from mid May 2021 to mid July 2021. The presence of such data allowed us the access to a true \textbf{model assessment} phase for our final models.
 
 \subsection{First Level}
-Taking a look at the easier task, \hyperref[tb:firsttest]{\textbf{Table \ref{tb:firsttest}}} represents the accuracy comparison between validation and test set. The results obtained from \textbf{model 25} are quite good, reaching \textit{82\% Top 1} accuracy and \textit{93\% Top 3}. This further prove, that the training process provided a good generalization capability to the model which leads to nice results over a new set of data.
+Taking a look at the easier task, \hyperref[tb:firsttest]{\textbf{Table \ref{tb:firsttest}}} represents the accuracy comparison between validation and test set. The results obtained from \textbf{model 104} are quite good, reaching \textit{85.42\% Top 1} accuracy and \textit{93.63\% Top 3}. This further proves that the training process provided a good generalization capability to the model which leads to nice results over a new set of data.
 \begin{table}[ht!]
     \begin{adjustwidth}{}{}
 	    \centering
@@ -454,17 +446,17 @@ Taking a look at the easier task, \hyperref[tb:firsttest]{\textbf{Table \ref{tb:
         \hline
         \textbf{Phase} & \textbf{Top1} & \textbf{Top3}\\
         \hline
-        Validation & 87.82 & 95.70\\
-        Test & 82.08 & 93.18\\
+        Validation & 87.09 & 95.73\\
+        Test & 85.42 & 93.63\\
         \hline
         \end{tabular}
     \end{adjustwidth}
     \captionsetup{justification   = centering}
-    \caption{Comparison between Model 25 \\\textit{validation} and \textit{test} performances}
+    \caption{Comparison between Model 104 \\\textit{validation} and \textit{test} performances}
     \label{tb:firsttest}
 \end{table}
 
-\hyperref[fig:heatfirst1]{\textbf{Figure \ref{fig:heatfirst1}}} displays the \textit{confusion matrix} over the test set exploiting the \textit{Top 1 prediction} of the model. First thing that stands out is the distribution of the samples which is very unbalanced, similarly to the original dataset, up to the point that \textit{class 5} has 0 samples. As far as concerns other classes, the low represented classes - \textit{3, 11 and 12} - are the ones where the mis-classification is higher. Other classes suffers the same trend of error, and this can be justified by errors made from the users - either on the class or the office - but also from some changes of competence between offices over documents during time. The latter reason also emerged during a meeting with Doc. Franchi, where a small live demo was set up. During the test, the \textit{Top 1} prediction of the model was incorrect using a known object and one possible document repository, but simply changing the latter was enough to get the correct prediction with \textit{99\%} reliability. This shows that the model has a nice generalization capability which, however, is very susceptible to the input data and this is obviously due to the data used to train the model. Nevertheless, even in the first test case, considering the \textit{Top 3} prediction was enough to have the correct answer with \textit{~30\%} reliability. The better accuracy of the model using the \textit{Top 3 prediction} can be seen in \hyperref[fig:heatfirst3]{\textbf{Figure \ref{fig:heatfirst3}}}. The confusion matrix highlights that all classes, except class 12, have more than 50\% accuracy with few misclassified samples only in the low represented classes. \hyperref[testclassdistrib]{\textbf{Figure \ref{testclassdistrib}}} shows for each class the prediction accuracy comparing the \textit{Top 1} and \textit{Top 3} prediction, suggesting that providing the latter to the user would for sure provide a trustworthy suggestion.
+\hyperref[fig:heatfirst1]{\textbf{Figure \ref{fig:heatfirst1}}} displays the \textit{confusion matrix} over the test set exploiting the \textit{Top 1 prediction} of the model. First thing that stands out is the distribution of the samples which is very unbalanced, similarly to the original dataset, up to the point that \textit{class 5} has 0 samples. As far as concerns other classes, the low represented classes - \textit{3, 11 and 12} - are the ones where the mis-classification is higher. Other classes suffers the same trend of error, and this can be justified by errors made from the users - either on the class or the office - but also from some changes of competence between offices over documents during time. The latter reason also emerged during a meeting with Doc. Franchi, where a small live demo was set up. During the test, the \textit{Top 1} prediction of the model was incorrect using a known object and one possible document repository, but simply changing the latter was enough to get the correct prediction with \textit{99\%} reliability. This shows that the model has a nice generalization capability which, however, is very susceptible to the input data and this is obviously due to the data used to train the model. Nevertheless, even in the first test case, considering the \textit{Top 3} prediction was enough to have the correct answer with \textit{~30\%} reliability. The better accuracy of the model using the \textit{Top 3 prediction} can be seen in \hyperref[fig:heatfirst3]{\textbf{Figure \ref{fig:heatfirst3}}}. The confusion matrix highlights that all classes, including class 12, have more than 50\% accuracy with few misclassified samples only in the low represented classes. \hyperref[testclassdistrib]{\textbf{Figure \ref{testclassdistrib}}} shows for each class the prediction accuracy comparing the \textit{Top 1} and \textit{Top 3} prediction, suggesting that providing the latter to the user would for sure provide a trustworthy suggestion.
 
 \subsection{Second Level}
 Moving to the more complex task, \hyperref[tb:secondtest]{\textbf{Table \ref{tb:secondtest}}} reports the results obtained in the second level classification task. Also in this case, the accuracy of the model is similar to the one obtained during the process of validation.
@@ -476,20 +468,48 @@ Moving to the more complex task, \hyperref[tb:secondtest]{\textbf{Table \ref{tb:
         \hline
         \textbf{Phase} & \textbf{Top1} & \textbf{Top3} & \textbf{Top5}\\
         \hline
-        Validation & 78.35 & 87.20 & 90.53\\
-        Test & 72.49 & 82.58 & 85.82\\
+        Validation & 77.71 & 87.49 & 90.54\\
+        Test & 74.92 & 83.89 & 87.30\\
+        
         \hline
         \end{tabular}
     \end{adjustwidth}
     \captionsetup{justification   = centering}
-    \caption{Comparison between Model 41 \\\textit{validation} and \textit{test} performances}
+    \caption{Comparison between Model 208 \\\textit{validation} and \textit{test} performances}
     \label{tb:secondtest}
 \end{table}
 
-\pagebreak
 In this scenario providing a confusion matrix or representation of the accuracy over the \textit{118 classes} would not have been the optimal choice, so the focus of the analysis was shifted to more general statistics. In particular the \textit{Top 1} and \textit{Top 5} prediction will be taken into consideration and compared to analyze the performances of the model. \hyperref[pieplot]{\textbf{Figure \ref{pieplot}}} displays two pie plots: \hyperref[a]{\textbf{11(a)}} reports \textit{Top 1} prediction statistics, while \hyperref[b]{\textbf{11(b)}} depicts \textit{Top 5} prediction statistic.\\
-Starting from the first one, the bigger portion - \textbf{38.3\%} - refers to the percentage of classes with \textit{0\% accuracy}, this is related to a huge number of classes that only have few samples in the test set as well as in the training set. This low represented data might not be correctly generalized by the model and lead to extremely poor accuracy. Nonetheless, \textbf{almost 50\%} of classes have \textit{at least 25\% accuracy}, and \textbf{more than 25\%} have \textit{at least 50\% accuracy}; results that - considering a \textit{Top 1 prediction} - are not bad at all.\\
-Considering the second plot the performances improve significantly. The number of classes with \textit{0\% accuracy} is lowered to \textbf{25\%}. The bigger portion - \textbf{34.6\%} - in this case refers to classes with over \textit{75\% accuracy}, and \textbf{almost 60\%} of classes have \textit{at least 50\% accuracy}. Similar to the previous case, the \textit{Top 5 prediction} provides the user a viable suggestion from which to choose the class for the document.
+Starting from the first one, the bigger portion - \textbf{37.04\%} - refers to the percentage of classes with \textit{0\% accuracy}, this is related to a huge number of classes that only have few samples in the test set as well as in the training set. This low represented data might not be correctly generalized by the model and lead to extremely poor accuracy. Nonetheless, \textbf{50\%} of classes have \textit{at least 25\% accuracy}, and \textbf{more than 25\%} have \textit{at least 50\% accuracy}; results that - considering a \textit{Top 1 prediction} over 118 classes - are not bad at all.\\
+Considering the second plot the performances improve significantly. The number of classes with \textit{0\% accuracy} is lowered to \textbf{24.69\%}. The bigger portion - \textbf{39.51\%} - in this case refers to classes with over \textit{75\% accuracy}, and \textbf{more than 60\%} of classes have \textit{at least 50\% accuracy}. Similarly to the previous case, the \textit{Top 5 prediction} provides the user a viable suggestion from which to choose the class for the document.
+
+\pagebreak
+
+\subsection{Second level with/without bias comparison}
+The unclear insights in analyzing the better performances of \hyperref[sec:altern-no-1cls-bias]{\textbf{Section \ref{sec:altern-no-1cls-bias}}} become clearer on a different dataset as the test set. The performances can be appreciated in \hyperref[tb:test-bias-nobias]{\textbf{Table \ref{tb:test-bias-nobias}}} where \textit{Model No Bias} achieves a result with little more than two full accuracy point over \textit{Model 208}. 
+\begin{table}[ht!]
+    \begin{adjustwidth}{}{}
+	    \centering
+	    \small
+	    \begin{tabular}{ |c|c|c|c| }
+        \hline
+        \textbf{Model} & \textbf{Top1} & \textbf{Top3} & \textbf{Top5}\\
+        \hline
+        Model 208 & 74.92 & 83.89 & 87.30\\
+        Model No Bias & 77.35 & 86.56 & 89.49\\
+        \hline
+        \end{tabular}
+    \end{adjustwidth}
+    \captionsetup{justification   = centering}
+    \caption{Comparison between Model 208 and Model No Bias \textit{test} performances}
+    \label{tb:test-bias-nobias}
+\end{table}
+
+The deeper analysis already attempted in \textbf{\ref{sec:altern-no-1cls-bias}} is reproduced in this case and the results are shown in \hyperref[nobiasvs41test]{\textbf{Figure \ref{nobiasvs41test}}}.
+Such a behaviour shows the supremacy of the Model No Bias in many classes when talking about second level task (such as class 1, 4, 12, 13 and 15), demonstrating how an uncertain or erroneous first level bias leads to a worsened result with respect to a simpler and unbiased model. 
+In fact, even if the biased model performs better in the first level task, the uncertainty penalizes the accuracy scores by a lot, while the unbiased model shows its robustness with less abrupt drops in accuracy.
+
+Both the models are definitely performing well and both could be used, but at this point the preference falls on the no bias model. An undoubtedly important experiment to understand that a finer grained analysis can give rise to better model explainability.
 
 \subsection{Inference Time}
 A key and fundamental point that goes beyond the accuracy numbers and affect the model performances is the inference time. In fact the proposed solution should not only be precise, but should be able to provide the user a set of possible classes in a small interval of time. As presented in  \hyperref[sec:projectpurpose]{\textbf{Section \ref{sec:projectpurpose}}} and reported in \hyperref[fig:classinterface]{\textbf{Figure \ref{fig:classinterface}}}, currently the user has to click and navigate through the various levels of the hierarchy in order to find the correct class. If the model is too slow the task is easily solved by the user, on the other hand if the model rapidly provides an answer, it can be exploited to avoid searching.
@@ -502,8 +522,8 @@ A key and fundamental point that goes beyond the accuracy numbers and affect the
         \hline
         \textbf{Model} & \textbf{Inference time (\textit{sec})} \\
         \hline
-        Model 25 & 0.002777 \\
-        Model 41 & 0.006295 \\
+        Model 104 & 0.002777 \\
+        Model 208 & 0.006295 \\
         \hline
         \end{tabular}
     \end{adjustwidth}
@@ -516,50 +536,20 @@ In order to get a fair estimate, the model was loaded on the \textit{CPU}, in th
 
 Both architectures have a very small inference time, order of milliseconds, resulting in a very efficient solution. The users will be able to select the office, write the object and almost instantly get the result. If the model, in the 3/5 possible classes, provides the correct one the user will be able to select it without using the class hierarchy interface.
 
-\subsection{Second level with/without bias comparison}
-The unclear insights in analyzing the better performances of \hyperref[sec:altern-no-1cls-bias]{\textbf{Section \ref{sec:altern-no-1cls-bias}}} become clearer on a different dataset as the test set. The performances can be appreciated in \hyperref[tb:test-bias-nobias]{\textbf{Table \ref{tb:test-bias-nobias}}} where \textit{Model No Bias} achieves a result with more than a full accuracy point over \textit{Model 41}. 
-\begin{table}[ht!]
-    \begin{adjustwidth}{}{}
-	    \centering
-	    \small
-	    \begin{tabular}{ |c|c|c|c| }
-        \hline
-        \textbf{Model} & \textbf{Top1} & \textbf{Top3} & \textbf{Top5}\\
-        \hline
-        Model 41 & 72.49 & 82.58 & 85.82\\
-        Model No Bias & 73.11 & 84.08 & 87.03\\
-        \hline
-        \end{tabular}
-    \end{adjustwidth}
-    \captionsetup{justification   = centering}
-    \caption{Comparison between Model 41 and Model No Bias \textit{test} performances}
-    \label{tb:test-bias-nobias}
-\end{table}
-
-The deeper analysis already attempted in \textbf{\ref{sec:altern-no-1cls-bias}} is reproduced in this case and the results are shown in \hyperref[nobiasvs41test]{\textbf{Figure \ref{nobiasvs41test}}}.
-Such a behaviour shows a supremacy of the Model No Bias in less populated classes (such as 9, 10, 12), demonstrating how an uncertain or erroneous first level bias leads to a worsened result with respect to a simpler and unbiased model. 
-On the other end, highly populated classes (or anyway classes where Model 41 has a more decise and clean result) tend to perform better on a biased model such as Model 41. 
-Therefore the \textbf{tradeoff} is clear and paves the way to a decision driven by the needs of the company. Both the models are definitely performing well and both could be used, but this experiment was nevertheless important to understand that a finer grained analysis can give rise to better model explainability.
-
 \section{Model Maintainability}
-The purpose of this project is to provide a viable solution that can help the users in the classification task. This solution should adapt and evolve with possible changes that can happen inside the company, e.g. new offices, changes of competence etc. As time goes by, more and more data is handled and classified by the users which leads to new sets of entries that can be exploited to improve model's performances.
+The purpose of this project is to provide a viable solution that can help the users in the classification task. This solution should adapt and evolve with changes that can happen inside the company (e.g. changes of competence of various offices). As time goes by, more and more data is handled and classified by the users, and this leads to new sets of entries that can be exploited to improve model's performances.\\
+In case of changes of competences, it is possible to perform a retraining with all the data (past and new), but removing the records that are now incompatible with the new structure of the archive.\\
+Otherwise, if the data distribution changes, but it is important not to "forget" what learnt so far, a retraining would do the job, but there exist some \textit{continual learning} strategies to achieve the same result in a more computationally efficient way.\\
+Finally, in case the data distribution stays the same, it is possible to exploit the new data available with a \textbf{fine tuning} of the model.
+% There are different approaches that can be used to update the model: it can be retrained from scratch using a bigger dataset, or it is possible to keep the current model. While the first alternative is more brutal, since we re-train the previous model, the second one keeps the current one and tries to improve it. This approach can be seen as a \textbf{fine tuning}, taking inspiration from the homonymous process that can be used for models such as pre-trained BERT.
+In particular, trying to apply this idea to the proposed solution, a fine tuning on the \textit{second level model} was attempted.
 
-There are different approaches that can be used to update the model. It can be retrained from scratch using a bigger dataset, or it is possible to keep the current model. While the first alternative is more brutal, since we re-train the previous model, the second one keeps the current one and tries to improve it. This approach can be seen as a \textbf{fine tuning}, taking inspiration from the homonymous process that can be used for models such as pre-trained BERT.
-
-In particular, trying to apply this idea to the proposed solution, different strategies have been analyzed:
-\begin{itemize}
-    \item Apply fine tuning to \textit{first level model}.
-    \item Apply fine tuning to \textit{second level model}, keeping the same first level module.
-    \item Apply fine tuning to \textit{second level model}, updating the first level module.
-\end{itemize}
-
-The models that have been analyzed in the previous sections are trained using the dataset presented in \hyperref[sec:dataset]{\textbf{Section \ref{sec:dataset}}}. The data was split into training and validation set. In this part of the analysis, the validation set is used as training set for the fine tuning with \textbf{7988} entries. Despite the small size of the training data and few epochs of training, the results lead to an improvement in the performances in the second level classification task over the test data (ref. \textbf{\ref{sec:test}}).
+The model was trained using the dataset presented in \hyperref[sec:dataset]{\textbf{Section \ref{sec:dataset}}}. The data was split into training and validation set. In this part of the analysis, the validation set is used as training set for the fine tuning with \textbf{7988} entries. Despite the small size of the training data and few epochs of training, the results lead to an improvement in the performances in the second level classification task over the test data (ref. \textbf{\ref{sec:test}}).
 
 Here is reported the accuracy comparison over the test set considering the following models:
 \begin{itemize}
-    \item [A.] Second level model (ref. \textbf{\ref{sec:2lev-model}}).
+    \item [A.] Model 208 (ref. \textbf{\ref{sec:2lev-model}}).
     \item [B.] Fine tuning of model \textbf{A}.
-    \item [C.] Fine tuning of \textit{first level module} (\textbf{\ref{sec:sec-lvl-desc}}) of model \textbf{A}, then fine tuning of the resulting \textit{second level model}.
 \end{itemize}
 \begin{table}[ht!]
     \begin{adjustwidth}{}{}
@@ -569,9 +559,8 @@ Here is reported the accuracy comparison over the test set considering the follo
         \hline
         \textbf{Model} & \textbf{Loss} & \textbf{\% Top1} & \textbf{\% Top3} & \textbf{\% Top5} \\
         \hline
-        A & 1.82532 & 72.50 & 82.58 & 85.83 \\
-        B & 1.30638 & 73.05 & 83.56 & 87.15 \\
-        C & 1.46075 & 73.52 & 83.56 & 87.44 \\
+        A & 1.82532 & 74.92 & 83.89 & 87.30 \\
+        B & 1.30638 & 75.13 & 84.03 & 87.87 \\
         \hline
         \end{tabular}
         \captionsetup{justification = centering, singlelinecheck=false, margin=3cm}
@@ -579,9 +568,45 @@ Here is reported the accuracy comparison over the test set considering the follo
     \end{adjustwidth}
     \caption{Comparison over test data of second level models}
 \end{table}
-\newpage
+
+\section{Comparison with Baselines}
+Before drawing up the final conclusions, a comparison with a basic machine learning technique is long overdue. Such a comparison is a relevant tool to understand how difficult the task really is. In fact, if a naive model such as the \textit{Naive Bayes Classifier} is able to get an accuracy comparable to the one of our model, it becomes futile to use a more complex model such as ours.\\
+The performance comparison between two different \textit{Naive Bayes Classifiers} (one per task) and our selected models on the validation and test accuracy metrics is shown in \hyperref[tb:baseline]{\textbf{Table 14}}. Such results highlight how the tasks at hand are not incredibly difficult, with the simpler model being absolutely comparable to the complex model.\\
+It is at this point of the discussion important to admit that the proposed model is probably more complex than needed, giving also a higher inference time for the first level task as shown once again in \hyperref[tb:baseline]{\textbf{Table 14}}. It is nevertheless interesting to notice how the Naive Bayes inference time gets bigger once the number of classes per task gets higher (Naive Bayes inference time is slower than the Neural Model in the second task). To conclude this short analysis, the task at hand results to be simple to solve, not needing an elaborated response as the one we proposed. We are nevertheless satisfied to have developed from scratch our models, hands on, comparing different architectures and getting in contact with the pain and joy of Natural Language Processing in Machine Learning.
+
+\begin{table}[ht!]
+\centering
+	    \small
+	    \begin{adjustwidth}{1cm}
+	                
+\subfloat{\begin{tabular}{ |c|c|c|c|}
+        \hline
+        \textbf{Task} &\textbf{Model 104} & \textbf{Naive Bayes} & \textbf{bert-base-italian-cased}\\
+        \hline
+        Validation (First) & 87.09/95.73 & 83.61/95.36 & 88.28/96.63\\ 
+        Test (First) & 85.42/93.63 & 84.91/94.86 & 88.83/95.37\\ 
+        Inference Time & 0.002777 & 0.000751 & 0.317788\\ 
+        \hline
+        \end{tabular}}
+	    \end{adjustwidth}
+\newline
+\subfloat{\begin{tabular}{ |c|c|c|c|}
+        \hline
+        \textbf{Task} & \textbf{Model 208}  & \textbf{Model No Bias} & \textbf{Naive Bayes} \\
+        \hline
+        Validation (Second) & 77.71/87.49/90.54 & 79.85/89.34/92.14 & 74.12/85.64/89.15 \\ 
+        Test (Second) & 74.92/83.89/87.30 & 77.35/86.56/89.49 & 76.14/85.56/88.44 \\ 
+        Inference Time & 0.006295 & 0.006003 & 0.006411 \\ 
+        \hline
+        \end{tabular}}
+    \captionsetup{justification = centering}
+    \caption{Comparison between complex model and baseline \\accuracy result are given in format top1 / top3 ( / top5)}
+    \label{tb:baseline}
+\end{table}
+\pagebreak
 \section{Conclusions and Future Development}
-In this report different solutions to solve Document Classification in public administration have been analyzed. The different experiments for the \textit{first and second level} classification task lead to interesting results. In the first case, the easier one with only 15 classes, the model is able to reach high performances - \textit{93\% Top 3 accuracy} - and also provide nice results for all the classes, going beyond their unbalanced distribution. The second one instead, was the most challenging task given the significantly higher number of classes and a much sparser distribution. Nevertheless, different solutions provided interesting results that went beyond the expectations, reaching \textit{85\% accuracy} exploiting a Top 5 prediction. The proposed solutions proved to be a viable integration to the current process of document classification providing both speed and precision. \textit{CTT} during the whole period showed to be excited about the project and surprised by the results achieved. We would like to thank them for the availability and support.
+In this report different solutions to solve Document Classification in public administration have been analyzed. A baseline analysis using the basic \textit{Naive Bayes Classifier} showed how the tasks were not particularly difficult to handle even with simple models, but nevertheless the different experiments for the \textit{first and second level} classification tasks lead to interesting results and a huge personal growth. In the first case, the easier one with only 15 classes, the model is able to reach high performances - \textit{93.63\% Top 3 accuracy} - and also provide nice results for all the classes, going beyond their unbalanced distribution. The second one instead was the most challenging task given the significantly higher number of classes and a much sparser distribution. Nevertheless, different solutions provided interesting results that went beyond the expectations, reaching \textit{87.30\% accuracy} exploiting a Top 5 prediction. The proposed solutions proved to be a viable integration to the current process of document classification providing both speed and precision. 
+\textit{CTT} during the whole period showed to be excited about the project and surprised by the results achieved. We would like to thank them for the availability and support. We would also like to thank professor Attardi for the critical review and experienced hints, they really pushed us to learn from our mistakes and not fall in similar errors or problems in our future careers.
 
 Last but not least, we will keep working on the project creating a more general solution. The idea is to provide a service that can be used by any company that, with the correctly tuned model, will be able to exploit its prediction to improve the process of classification.
 
@@ -618,28 +643,28 @@ Last but not least, we will keep working on the project creating a more general 
 \begin{figure}[ht!]
         \begin{adjustwidth}{-3.2cm}{}
     	    \begin{center}
-        \includegraphics[width=1.5\textwidth]{#25_bar.png}
+        \includegraphics[width=1.5\textwidth]{#104.png}
             \end{center}
 	    \end{adjustwidth}
-        \caption{Model 25 training/validation plots}
-        \label{fig:model25}
+        \caption{Model 104 training/validation plots}
+        \label{fig:model104}
 \end{figure}
 
 \begin{figure}[ht!]
         \begin{adjustwidth}{-3.2cm}{}
     	    \begin{center}
-        \includegraphics[width=1.5\textwidth]{#26_bar.png}
+        \includegraphics[width=1.5\textwidth]{#208.png}
             \end{center}
 	    \end{adjustwidth}
-        \caption{Model 41 training/validation plots}
-        \label{fig:model41}
+        \caption{Model 208 training/validation plots}
+        \label{fig:model200}
 \end{figure}
 \newpage
 \pagenumbering{gobble}
 \begin{figure}[ht!]
         \begin{adjustwidth}{-3.2cm}{}
     	    \begin{center}
-        \includegraphics[width=1.45\textwidth]{heat_first.jpg}
+        \includegraphics[width=1.45\textwidth]{heatmap1.png}
             \end{center}
 	    \end{adjustwidth}
 	    \captionsetup{justification   = centering}
@@ -650,7 +675,7 @@ Last but not least, we will keep working on the project creating a more general 
 \begin{figure}[ht!]
         \begin{adjustwidth}{-3.2cm}{}
     	    \begin{center}
-        \includegraphics[width=1.45\textwidth]{heat_first3.jpg}
+        \includegraphics[width=1.45\textwidth]{heatmap3.png}
             \end{center}
 	    \end{adjustwidth}
 	    \captionsetup{justification   = centering}
@@ -660,9 +685,9 @@ Last but not least, we will keep working on the project creating a more general 
 
 \begin{figure}[!tbp]
   \centering
-  \subfloat[Top 1 Accuracy]{\includegraphics[width=0.4\textwidth]{class_distr1.png}\label{fig:before}}
+  \subfloat[Top 1 Accuracy]{\includegraphics[width=0.7\textwidth]{class_distr1.png}\label{fig:before}}
   \hfill
-  \subfloat[Top 3 Accuracy]{\includegraphics[width=0.4\textwidth]{class_distr3.png}\label{fig:after}}
+  \subfloat[Top 3 Accuracy]{\includegraphics[width=0.7\textwidth]{class_distr3.png}\label{fig:after}}
   \captionsetup{justification   = centering}
 \caption{\textit{Top 1} vs \textit{Top 3} first class task distribution \\(NB. the class are indexed starting from 0)}
 \label{testclassdistrib}
@@ -670,9 +695,9 @@ Last but not least, we will keep working on the project creating a more general 
 
 \begin{figure}[!tbp]
   \centering
-  \subfloat[First class Top 1 accuracy ]{\includegraphics[width=0.6\textwidth]{acc_per_class_first_task.png}}
+  \subfloat[First class Top 1 accuracy ]{\includegraphics[width=0.7\textwidth]{acc_per_class_first_task.png}}
   \hfill
-  \subfloat[Second class Top 1 accuracy ]{\includegraphics[width=0.6\textwidth]{acc_per_class_second_task.png}}
+  \subfloat[Second class Top 1 accuracy ]{\includegraphics[width=0.7\textwidth]{acc_per_class_second_task.png}}
     \captionsetup{justification   = centering}
     \caption{\textit{First class} vs \textit{Second class} accuracy comparison between with/out bias (see \hyperref[sec:secondnobiasperformances]{\textbf{Section \ref{sec:secondnobiasperformances}}})}
 \label{nobiasvs41test}
@@ -680,11 +705,37 @@ Last but not least, we will keep working on the project creating a more general 
 
 \begin{figure}[!tbp]
   \centering
-  \subfloat[Top 1 accuracy pieplot]{\includegraphics[width=0.55\textwidth]{pieplot1.pdf}}\label{a}
+  \begin{adjustwidth}{+2.9cm}{}
+  \subfloat[Top 1 accuracy pieplot]{\includegraphics[width=0.7\textwidth]{pieplot1.png}}\label{a}
+  \end{adjustwidth}
   \hfill
-  \subfloat[Top 5 accuracy pieplot]{\includegraphics[width=0.55\textwidth]{pieplot5.pdf}}\label{b}
+  \begin{adjustwidth}{+2.5cm}{}
+  \subfloat[Top 5 accuracy pieplot]{\includegraphics[width=0.65\textwidth]{pieplot5.png}}\label{b}
+  \end{adjustwidth}
     \captionsetup{justification   = centering}
     \caption{\textit{Top 1} and \textit{Top 5} accuracy pieplots for Second Level Task testing}
 \label{pieplot}
+\end{figure}
+
+\begin{figure}[ht!]
+        \begin{adjustwidth}{0cm}{}
+    	    \begin{center}
+        \includegraphics[width=1\textwidth]{first_model.png}
+            \end{center}
+	    \end{adjustwidth}
+	    \captionsetup{justification   = centering}
+        \caption{First Level Model Architecture}
+        \label{fig:archifirst}
+\end{figure}
+
+\begin{figure}[ht!]
+        \begin{adjustwidth}{-3cm}{}
+    	    \begin{center}
+        \includegraphics[width=1.45\textwidth]{second_model.png}
+            \end{center}
+	    \end{adjustwidth}
+	    \captionsetup{justification   = centering}
+        \caption{Second Level Model Architecture}
+        \label{fig:archisecond}
 \end{figure}
 \end{document}
