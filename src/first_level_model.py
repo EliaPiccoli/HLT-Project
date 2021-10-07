@@ -1,35 +1,29 @@
-import copy
 import math
 import pickle
 import torch
-from tqdm import tqdm
-from torch import nn
-from torch._C import dtype
 import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import pandas as pd
-import numpy as np
-from data_parser import Parser
-from sklearn.model_selection import train_test_split
+
+from tqdm import tqdm
+from torch import nn
+from torch.utils.data import DataLoader
 from dataset import BalancedCTTDataset
 from object_transformer import Transformer
-import json
-import time
+from sklearn.model_selection import train_test_split
 
 # set device globally
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-class CTTClassifier(nn.Module):
+class FirstLevelClassifier(nn.Module):
     def __init__(self, left_dims=(2e4, 128), left_inp_dim=128, seq_len=30, nhead=8, dim_feedforward=2048,
-                 transformer_dropout=0.7, decoder_dropout=0.2, activation='relu', num_layers=2, dec_dims=(512,)):
+                 transformer_dropout=0.7, decoder_dropout=0.2, activation='relu', num_layers=2):
         super().__init__()
         output_dim = 15 # number of classes
         self.left_model = Transformer(dims=left_dims, nhead=nhead, dim_feedforward=dim_feedforward, dropout=transformer_dropout,
                                       activation=activation, num_layers=num_layers)
         self.final_left = nn.Linear(seq_len * left_dims[1], left_inp_dim)
         office_onehot = 20
-        # decoder with 1 single layer
         self.decoder = nn.Sequential(nn.Linear(left_inp_dim + office_onehot, output_dim))
         self.drop = nn.Dropout(decoder_dropout)
 
@@ -42,7 +36,7 @@ class CTTClassifier(nn.Module):
         x = self.decoder(x)
         return x
 
-def train(model: CTTClassifier, tr_loader, val_loader, epochs=10, max_patience=5, save_path="models/first_#104.pt"):
+def train(model: FirstLevelClassifier, tr_loader, val_loader, epochs=10, max_patience=5, save_path="models/first_####.pt"):
     best_loss = math.inf
     model.to(device)
     opt = torch.optim.Adam(model.parameters())
@@ -62,7 +56,7 @@ def train(model: CTTClassifier, tr_loader, val_loader, epochs=10, max_patience=5
             office_mb = office_mb.float().to(device)
             label_mb = label_mb.to(device)
             output = model(obj_mb, office_mb)
-            top1_acc += sum(output.cpu().argmax(dim=1) == label_mb.cpu()) / len(label_mb) # WHY .cpu() ??
+            top1_acc += sum(output.cpu().argmax(dim=1) == label_mb.cpu()) / len(label_mb)
             top3_acc += sum([1 if label_mb[i] in torch.topk(output[i],3).indices else 0 for i in range(len(label_mb))]) / len(label_mb)
             loss = criterion(output, label_mb)
             loss.backward()
@@ -74,7 +68,7 @@ def train(model: CTTClassifier, tr_loader, val_loader, epochs=10, max_patience=5
         top1_acc /= len(tr_loader)
         top3_acc /= len(tr_loader)
         loss_tot /= len(tr_loader)
-        last_tr_loss, last_tr_top1_acc, last_tr_top3_acc = str(f"{loss_tot:.4f}"), str(f"{top1_acc:.4f}"), str(f"{top3_acc:.4f}")   # used only for the progbar
+        last_tr_loss, last_tr_top1_acc, last_tr_top3_acc = str(f"{loss_tot:.4f}"), str(f"{top1_acc:.4f}"), str(f"{top3_acc:.4f}")
         progbar.set_postfix(tr_loss=last_tr_loss, tr_top1_acc=last_tr_top1_acc, tr_top3_acc=last_tr_top3_acc)
         hist['tr']['top1'].append(top1_acc)
         hist['tr']['top3'].append(top3_acc)
@@ -112,7 +106,7 @@ def train(model: CTTClassifier, tr_loader, val_loader, epochs=10, max_patience=5
     return hist
 
 
-def evaluate(model: CTTClassifier, loader: DataLoader, criterion):
+def evaluate(model: FirstLevelClassifier, loader: DataLoader, criterion):
     model.eval()
     top1_acc, top3_acc = 0, 0
     loss = 0
@@ -121,7 +115,7 @@ def evaluate(model: CTTClassifier, loader: DataLoader, criterion):
         office_mb = office_mb.float().to(device)
         label_mb = label_mb.to(device)
         output = model(obj_mb, office_mb)
-        top1_acc += sum(output.cpu().argmax(dim=1) == label_mb.cpu()) / len(label_mb) # WHY .cpu() ??
+        top1_acc += sum(output.cpu().argmax(dim=1) == label_mb.cpu()) / len(label_mb)
         top3_acc += sum([1 if label_mb[i] in torch.topk(output[i],3).indices else 0 for i in range(len(label_mb))]) / len(label_mb)
         loss += criterion(output, label_mb).item()
     top1_acc /= len(loader)
@@ -130,22 +124,27 @@ def evaluate(model: CTTClassifier, loader: DataLoader, criterion):
     return loss, top1_acc, top3_acc
 
 if __name__ == '__main__':
-    seq_len = 30
+    seq_len = 95
 
-    # read dataset csv and split it
+    # read dataset
     dataset = pd.read_csv('dataset/rebalanced_dataset.csv', sep='\t', index_col=0)
+    # split data in training and validation set
     train_set, val_set = train_test_split(dataset, test_size=0.2, shuffle=True, random_state=1)
     train_set = BalancedCTTDataset(dataset=train_set, offices_path='dataset/offices_names.csv', seq_len=seq_len, task='FirstLevel')
     training_parser = train_set.parser
     valid_set = BalancedCTTDataset(dataset=val_set, offices_path='dataset/offices_names.csv', parser=training_parser, seq_len=seq_len, task='FirstLevel')
-    with open("models/first_#104_parser", "wb") as f:
+    # save parser
+    with open("models/first_####_parser", "wb") as f:
         pickle.dump({"parser": training_parser}, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+    # create data loaders
     train_loader = DataLoader(train_set, batch_size=512, num_workers=2)
     val_loader = DataLoader(valid_set, batch_size=128, num_workers=2)
-    model = CTTClassifier(left_dims=(len(train_set.parser.alphabet) + 2, 256), left_inp_dim=256, seq_len=seq_len)  # +1 because of token "<UNK>"
+    # create and train model
+    model = FirstLevelClassifier(left_dims=(len(train_set.parser.alphabet) + 2, 256), left_inp_dim=256, seq_len=seq_len)  # +2 because of tokens <UNK> and <PAD>
     hist = train(model, train_loader, val_loader, epochs=30)
 
+    # plot results
     plt.subplot(1, 3, 1)
     plt.plot(hist['tr']['loss'], label='training loss')
     plt.plot(hist['val']['loss'], label='validation loss')

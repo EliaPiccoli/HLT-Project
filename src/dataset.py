@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 import pickle
+
 from data_parser import Parser
 from torch.utils.data import Dataset
-
 
 class BalancedCTTDataset(Dataset):
     def __init__(self, dataset: pd.DataFrame, offices_path: str, seq_len=30, parser=None, task='FirstLevel', class_to_label_path="models/class_to_label", verbose=False):
