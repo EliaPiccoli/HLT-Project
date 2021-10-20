@@ -1,0 +1,83 @@
+# This repository adheres to the publiccode.yml standard by including this 
+# metadata file that makes public software easily discoverable.
+# More info at https://github.com/italia/publiccode.yml
+
+publiccodeYmlVersion: '0.2'
+applicationSuite: SmartPA
+categories:
+  - data-analytics
+  - document-management
+  - predictive-analysis
+dependsOn:
+  open:
+    - name: PyTorch
+      optional: false
+      version: 1.9.0
+      versionMax: ''
+      versionMin: ''
+description:
+  it:
+    documentation: 'https://github.com/EliaPiccoli/HLT-Project/blob/main/report/report.pdf'
+    features:
+      - Document Classification
+    genericName: Artificial Intelligence
+    longDescription: |2
+       The focus of the project was to improve the document archiving process in compliance with the Protocollo Informatico Italian law. In fact, the user of public administration, in order to archive a protocol, has to fill various fields, in particular: needs to write a summary of the contents of the document (_Oggetto_), pick the correct document repository for the office (_Contenitore_) and then choose the correct class among many. The model will provide a _top 3/5 prediction_ over the possible correct classes. 
+    screenshots:
+      - |-
+        https://raw.githubusercontent.com/EliaPiccoli/HLT-Project/master/report/first_model.png
+      - |-
+        https://raw.githubusercontent.com/EliaPiccoli/HLT-Project/master/report/second_model.png
+    shortDescription: |-
+      The focus of the project was to improve the document archiving process in
+      compliance with the Protocollo Informatico Italian law.
+developmentStatus: stable
+intendedAudience:
+  countries:
+    - it
+  scope:
+    - government
+    - science-and-technology
+isBasedOn:
+  - PyTorch
+it:
+  conforme:
+    gdpr: true
+    lineeGuidaDesign: false
+    misureMinimeSicurezza: true
+    modelloInteroperabilita: false
+  countryExtensionVersion: '0.2'
+  piattaforme:
+    anpr: false
+    cie: false
+    pagopa: false
+    spid: false
+landingURL: 'https://github.com/EliaPiccoli/HLT-Project/blob/main/README.md'
+legal:
+  authorsFile: 'https://raw.githubusercontent.com/EliaPiccoli/HLT-Project/master/AUTHORS'
+  license: EUPL-1.2
+  mainCopyrightOwner: Piccoli Elia
+  repoOwner: Piccoli Elia
+localisation:
+  availableLanguages:
+    - it
+    - en
+  localisationReady: false
+maintenance:
+  contacts:
+    - email: e.piccoli19@gmail.com
+      name: Elia Piccoli
+      phone: '+393459247156'
+  type: internal
+name: SmartPA - Document Classifier
+platforms:
+  - web
+  - windows
+  - mac
+  - linux
+releaseDate: '2021-09-23'
+softwareType: library
+softwareVersion: 1.0.0
+url: 'https://github.com/EliaPiccoli/HLT-Project'
+usedBy:
+  - CTT Nord Srl
