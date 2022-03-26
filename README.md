@@ -1,7 +1,9 @@
-# HLT-Project
+# Automatic document classification tool
 
 Project for the Human Language Technologies course @ University of Pisa
 <img src="report/unipi.png" align="right" alt="Unipi logo">
+
+Authors: [Elia Piccoli](https://github.com/EliaPiccoli), [Alex Pasquali](https://github.com/AlexPasqua) and [Nicola Gugole](https://github.com/NicolaGugole)
 
 ##
 
